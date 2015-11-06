@@ -1,0 +1,15 @@
+[06-Nov-2015 15:30:24 UTC] PHP Warning:  PHP Startup: dio: Unable to initialize module
+Module compiled with module API=20121212
+PHP    compiled with module API=20131226
+These options need to match
+ in Unknown on line 0
+[06-Nov-2015 15:34:09 UTC] PHP Warning:  PHP Startup: dio: Unable to initialize module
+Module compiled with module API=20121212
+PHP    compiled with module API=20131226
+These options need to match
+ in Unknown on line 0
+[06-Nov-2015 15:35:39 UTC] PHP Warning:  PHP Startup: dio: Unable to initialize module
+Module compiled with module API=20121212
+PHP    compiled with module API=20131226
+These options need to match
+ in Unknown on line 0

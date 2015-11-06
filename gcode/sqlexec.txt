@@ -1,0 +1,4 @@
+.open 3dgcode.sqlite
+.separator ","
+.import temp.csv gcode
+.quit

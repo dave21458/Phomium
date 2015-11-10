@@ -1,4 +1,5 @@
 <?php
+if(array_key_exists('file',$_REQUEST))getGcode();
 
 function getGCode()
 {
@@ -43,12 +44,15 @@ function getGCode()
 		$str .="model[$layer].move = [];\n";
 		$str .="model[$layer].retract = [];\n";
 		$str .="model[$layer].command = [];\n";
+		$str .="model['gcode'] = [];\n";
 		$str .= "var layers_z = [];\n";
 		$str .= "var segmentCnt = [];\n";
 		fwrite($tmp,$str);
 		$str = "";
 		while($fLine = fgets($gfs)){
-			$fLine = strtolower(trim($fLine));
+			$fLine = trim($fLine);
+			fwrite($tmp,"model['gcode'][$line]='$fLine';\n");
+			$fLine = strtolower($fLine);
 			if(substr($fLine,0,1) == ';' || strlen($fLine) < 2){
 				$line++;
 				continue;
@@ -153,10 +157,11 @@ function getGCode()
 		$str .="model[$layer].printSegments = $printCnt;\n";
 		$str .="model[$layer].moveSegments = $moveCnt;\n";
 		fwrite($tmp, $str);
-		
-	}
-	fwrite($tmp,"var endTime = ".microtime(true) . ";\n");
-	fclose($tmp);
+		fwrite($tmp,"var endTime = ".microtime(true) . ";\n");
+		echo "<meta &&&model.js&&&/>";
+		fclose($tmp);
+	}	
+	
 }
 
 ?>

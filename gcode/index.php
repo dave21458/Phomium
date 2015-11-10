@@ -5,12 +5,14 @@
 
 <html>
 <head>
+<title> Gcode Editor</title>
 <script>
 ts = new Date().getTime();
 </script>
 <script type="text/javascript" src="jquery-ui-1.11.4.custom\jquery.js"></script>
 <script type="text/javascript" src="jquery-ui-1.11.4.custom\jquery-ui.js"></script>
 <script type="text/javascript" src="jquery-ui-1.11.4.custom\jquery-ui.min.js"></script>
+<script type="text/javascript" src="ajax.js"></script>
 <script>
 sload = new Date().getTime();
 </script>
@@ -40,6 +42,21 @@ eload = new Date().getTime();
 	position:absolute;
 	left:530;
 	top 50;
+	width:350;
+	border:1px solid #000000;
+	padding : 5 5 5 5;
+}
+.gcode{
+	position:absolute;
+	left:780;
+	top:10;
+	height:750;
+	width:400;
+	overflow-y: auto;
+	border:1px solid #000000;
+}
+.gcodeline{
+	color:grey;
 }
 </style>
 	
@@ -86,24 +103,60 @@ eload = new Date().getTime();
 		Print Length/Speed : <strong id = 'segLen'> 0 </strong><br/>
 		Move Length/Speed :  <strong id = 'segMov'> 0 </strong><br/>
 		Retract Length/Speed :  <strong id = 'segRet'> 0 </strong><br/>
+		GCode :  <strong id = 'line'>  </strong>
 	</div>
 	<h2 id = 'optionsLabel'> Options</h2>
 	<div id = "options">
-		Show Moves <input type = 'checkbox' id = 'optMove' onchange = 'this.checked ? options.showMoves = 1:options.showMoves = 0;changeLayer(curLayer)'/> <br/>
-		Show Retracts <input type = 'checkbox' id = 'optRetract' onchange = 'this.checked ? options.showRetracts = 1:options.showRetracts = 0;changeLayer(curLayer)'/>
+		<input type = 'checkbox' id = 'optMove' onchange = 'this.checked ? options.showMoves = 1:options.showMoves = 0;showLayers();'/>Show Moves<br/>
+		<input type = 'checkbox' id = 'optRetract' onchange = 'this.checked ? options.showRetracts = 1:options.showRetracts = 0;showLayers()'/>Show Retracts  <br/>
+		<input type = 'checkbox' id = 'optPrevLay' onchange = 'this.checked ? options.showPrevLayers = 1:options.showPrevLayers = 0;showLayers();'/>Show Previous Layers (will cause lagging) <br/>
+		<input type = 'checkbox' id = 'optAllLay' onchange = 'this.checked ? options.showAllLayers = 1:options.showAllLayers = 0;showLayers();'/>Show All Layers (not yet implemented)<br/>
+		<input type = 'checkbox' id = 'optgcode' onchange = 'this.checked ? options.showGcode = 1:options.showGcode = 0;showLayers();'/>Show Gcode; 
 	</div>
-	
 </div>
+<div id = 'gcodeFile' class = 'gcode'></div>
 <script>
 
 
 function getFile()
 {
 	if(phomium.result){
-		document.location = 'index.php?file='+phomium.resultText + "\\" + phomium.resultArray[0];
-		LoadModel("model.js");
-		changeLayer(1);
+		clearLayer();
+		ctx.font = "30px Arial";
+		ctx.strokeText("Parsing File " ,30,30);
+		ajaxReq(LoadModel,'gcode.php',"file=" + phomium.resultText + "\\" + phomium.resultArray[0]);
 	}
+}
+
+function LoadModel(scriptName) {
+   ctx.font = "30px Arial";
+   ctx.strokeText("Loading Data " ,30,60);
+   var script = document.createElement('script');
+   script.src = scriptName[1];
+   script.onload = function(){
+	   updateModelInfo();
+	   showGcode();
+	   changeLayer(1);
+	};
+	document.head.appendChild(script);
+}
+
+function showLayers()
+{
+	lts = new Date().getTime();
+	clearLayer();
+	if(options.showPrevLayers){
+		ctx.globalAlpha = .3;
+		for(var cnt1 = 1;cnt1 < curLayer;cnt1++){
+			drawLayer(cnt1);
+		}
+	}
+	ctx.globalAlpha = 1;
+	drawLayer(curLayer);
+	drawScale();
+	upMeasure();
+	updateLayerInfo();
+	te = new Date().getTime();
 }
 
 function changeLayer(lay)
@@ -112,37 +165,39 @@ function changeLayer(lay)
 	curLayer = lay;
 	clearLayer();
 	drawTo = model[curLayer].printSegments;
-	drawLayer(drawTo);
+	showLayers();
 	$("#segmentSlider").slider("option","max",model[curLayer].printSegments);
 	$("#segmentSlider").slider("option","value",model[curLayer].printSegments);
 	$("#layerSlider").slider("option","value",lay);
 	
 }
 
-function drawLayer(to)
+function drawLayer(layer)
 {
 	var pCnt = 0;
 	var mCnt = 0;
 	var rCnt = 0;
+	var sCnt = 0;
 	var hasMove = -1;
 	var hasRetract = -1;
-	var print = model[curLayer].print;
-	var move = model[curLayer].move;
-	var retract = model[curLayer].retract;
+	var print = model[layer].print;
+	var move = model[layer].move;
+	var retract = model[layer].retract;
 	offset.pCenterX = offset.centerX;
 	offset.pCenterY = offset.centerY;
 	offset.centerX = (offset.px - offset.x);
 	offset.centerY = (offset.py - offset.y); 
-	while(pCnt < to){
+	layer == curLayer ? sCnt = drawTo:sCnt = model[layer].printSegments
+	while(pCnt < sCnt){
 		ctx.beginPath();
-		pCnt == to-1 ? ctx.setLineDash([5,10]):ctx.setLineDash([1,0]);
+		pCnt == sCnt-1 ? ctx.setLineDash([5,10]):ctx.setLineDash([1,0]);
 		if(rCnt < retract.length){
 			if(retract[rCnt].line <= print[pCnt].line){
 				if(options.showRetracts){
 					retract[rCnt].de > 0 ? ctx.fillStyle = colors.retractIn: ctx.fillStyle = colors.retractOut ;
 					drawCircle(retract[rCnt]);
 				}
-				if(pCnt == to - 1)hasRetract = rCnt;
+				if(pCnt == sCnt - 1)hasRetract = rCnt;
 				rCnt++;
 			}
 		}
@@ -152,7 +207,7 @@ function drawLayer(to)
 				ctx.strokeStyle = colors.move;
 				drawLine(move[mCnt]);
 			}
-			if(pCnt == to - 1)hasMove = mCnt;
+			if(pCnt == sCnt - 1)hasMove = mCnt;
 			mCnt++;
 			}
 		}
@@ -161,11 +216,7 @@ function drawLayer(to)
 		pCnt++;
 	}
 	ctx.setLineDash([1,0])
-	drawScale();
-	upMeasure();
-	updateLayerInfo();
-	updateSegmentInfo(pCnt - 1,hasRetract,hasMove);
-	te = new Date().getTime();
+	if(layer == curLayer)updateSegmentInfo(pCnt - 1,hasRetract,hasMove);
 }
 
 function drawLine(data)
@@ -207,16 +258,27 @@ function clearLayer()
 	ctx.clearRect(0,0,gc.width,gc.height);
 }
 
+function showGcode()
+{
+	var str ="";
+	$("#gcodeFile").html(str);
+	for(var cnt = 1;cnt < model.gcode.length;cnt++){
+		str += "<span class = 'gcodeline' id = 'g" + cnt + "'>";
+		str += "<strong>"+ cnt + "</strong> " + model.gcode[cnt];
+		str += "</span><br/>";
+		
+	}
+	$("#gcodeFile").html($("#gcodeFile").html() + str);
+}
+
 function zoomer(e)
 {
 	if(!e.button == 1){
 		pZoom = zoom;
-		//var delta = Math.max(-1, Math.min(1,e.wheelDelta));
-		if((e.wheelDelta < 0 && zoom > .2) || (e.wheelDelta > 0 && zoom < 20)){
-			//zoom += delta / 10;
+		if((e.wheelDelta < 0 && zoom > .2) || (e.wheelDelta > 0 && zoom < 50)){
 			e.wheelDelta > 0 ? zoom += 1:zoom  -= 1;
 			clearLayer();
-			drawLayer(drawTo);
+			showLayers();
 		}
 	}
 }
@@ -229,7 +291,7 @@ function mover(e)
 		pMouseX = e.clientX;
 		pMouseY = e.clientY;
 		clearLayer();
-		drawLayer(drawTo);
+		showLayers();
 	}
 }
 
@@ -265,7 +327,7 @@ function keys(e)
 			break;
 	}
 	clearLayer();
-	drawLayer(drawTo);
+	showLayers();
 }
 		
 
@@ -276,6 +338,7 @@ function startMover(e)
 		pMouseX = e.clientX;
 		pMouseY = e.clientY;
 	}
+	if(e.button == 1) measurer(e);	
 }
 
 function stopMover(e)
@@ -304,14 +367,6 @@ function upMeasure()
 	$("#measure").html("X" + x + " : Y" + y + " :Length " + len);
 }
 
-function LoadModel(scriptName) {
-   var docHeadObj = document.getElementsByTagName("head")[0];
-   var dynamicScript = document.createElement("script");
-   dynamicScript.type = "text/javascript";
-   dynamicScript.src = scriptName;
-   docHeadObj.appendChild(dynamicScript);
-}
-
 function updateModelInfo()
 {
 	$("#fName").html(model.name);
@@ -322,6 +377,7 @@ function updateModelInfo()
 	$("#totPriLen").html(Math.round(totalPrintLen) + "mm");
 	$("#totMovLen").html(Math.round(totalMoveLen) + "mm");
 	$("#totExt").html(Math.round(totalExtrudeLen * 10)/10 + "mm");
+	$("#layerSlider").slider("option","max",layCnt);
 }
 
 function updateLayerInfo()
@@ -340,7 +396,8 @@ function updateSegmentInfo(seg,ret,move)
 {
 	$("#segNum").html((seg + 1) + " of " + model[curLayer].print.length);
 	$("#segLen").html((Math.round(model[curLayer].print[seg].len *10)/10) + "/" + model[curLayer].print[seg].f);
-	$("#segExt").html((Math.round(model[curLayer].print[seg].de *100)/100) + "/" + (Math.round((model[curLayer].print[seg].de / model[curLayer].print[seg].len)*1000)/10) + "%");
+	$("#line").html(model.gcode[model[curLayer].print[seg].line]);
+	$("#segExt").html((Math.round(model[curLayer].print[seg].de *100)/100) + "/" + (Math.round((model[curLayer].print[seg].de / model[curLayer].print[seg].len)*10000)/10000) );
 	if(ret < 0){
 		$("#segRet").html("NA");
 	}else{
@@ -351,6 +408,17 @@ function updateSegmentInfo(seg,ret,move)
 	}else{
 		$("#segMov").html( (Math.round(model[curLayer].move[move].len *10)/10) + "/" + (model[curLayer].move[move].f));
 	}
+	if(options.showGcode){
+		$("#gcodeFile").css("visibility","visible");
+		var gline = model[curLayer].print[seg].line;
+		$("#g"+pGline).css("color","gray");
+		$("#g"+gline).css("color","red");
+		pGline = gline;
+		if(gline > 21)gline -= 20;
+		document.getElementById("g"+gline).scrollIntoView();
+	}else{
+		$("#gcodeFile").css("visibility","hidden");
+	}
 }
 
 var zoom = 5;
@@ -360,9 +428,13 @@ var pMouseY = 0;
 var pZoom = 0;
 var curLayer = 1;
 var retractCirRad = 5;
-var options = {showMoves:0,showRetracts:0};
+var options = {showMoves:0,showRetracts:0,showPrevLayers:0,showAllLayers:0,showGcode:0};
 var laySelect = document.getElementById('laySel');
+var colors = {print:"#ff0000",move:"#0000ff",retractIn: "#00ff00",retractOut:"#00ffff",text: "#000000"};
+var drawTo = model[curLayer].printSegments;
+var pGline = 1;
 var gc = document.getElementById('gcodeCanvas');
+var ctx = gc.getContext('2d');
 gc.height = offset.y * 2;
 gc.width = offset.x * 2;
 if (gc.addEventListener) {
@@ -371,17 +443,15 @@ if (gc.addEventListener) {
 	gc.addEventListener("mouseup",stopMover, false);
 	gc.addEventListener("mouseover", startKeys, false);
 	gc.addEventListener("mouseout",stopMover, false);
-	gc.addEventListener("click",measurer, false);
+	//gc.addEventListener("click",measurer, false);
 }
-var ctx = gc.getContext('2d');
-var colors = {print:"#ff0000",move:"#0000ff",retractIn: "#00ff00",retractOut:"#00ffff",text: "#000000"};
 offset.centerX = (offset.px - offset.x)/zoom;
 offset.centerY = (offset.py - offset.y)/zoom;
-var drawTo = model[curLayer].printSegments;
 laySelect.max = layCnt ;
 laySelect.value = curLayer;
 $("#layHigh").html(layers_z[curLayer - 1]);
-drawLayer(drawTo);
+showGcode();
+showLayers();
 $("#layerSlider").slider({
 	orientation:'vertical',
 	min:1,
@@ -398,12 +468,16 @@ $("#segmentSlider").slider({
 	max:model[curLayer].printSegments ,
 	step:1,
 	value:model[curLayer].printSegments -1,
-	slide:function(e,ui){drawTo = ui.value;clearLayer();drawLayer(drawTo)}
+	slide:function(e,ui){drawTo = ui.value;clearLayer();showLayers()}
 });
 $(".sSlider").css({"width":gc.width ,"top":parseInt($("#gcodeCanvas").css("top"),10)+gc.height + 20});
 $("#segmentSlider").css({'width':gc.width});
 $(".info").css({"left":parseInt($(".lSlider").css("left"),10)+ 30});
+$(".gcode").css({"left":parseInt($(".info").css("left"),10)+ parseInt($(".info").css("width"),10)+ 20});
+$(".ui-widget-content").css("background","blue");
+$(".ui-slider-handle.ui-state-default").css("background","green")
 updateModelInfo();
+
 </script>
 
 </body>

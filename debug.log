@@ -3,3 +3,5 @@
 [1106/103024:ERROR:renderer_main.cc(226)] Running without renderer sandbox
 [1106/103409:ERROR:renderer_main.cc(226)] Running without renderer sandbox
 [1106/103539:ERROR:renderer_main.cc(226)] Running without renderer sandbox
+[1110/090400:ERROR:renderer_main.cc(226)] Running without renderer sandbox
+[1110/090408:INFO:CONSOLE(0)] "event.returnValue is deprecated. Please use the standard event.preventDefault() instead.", source:  (0)

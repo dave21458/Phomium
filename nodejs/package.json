@@ -1,0 +1,14 @@
+{
+  "name": "phomium-node-rest",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "npm test"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "restify": "^4.0.3"
+  }
+}
